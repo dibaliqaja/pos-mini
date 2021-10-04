@@ -8,7 +8,7 @@
 * [x] Master Data Product
 * [x] Autentikasi
 
-### ⚡️ Installation
+## Installation
 1. Clone GitHub repo for this project locally
 ```bash
 $ git clone https://github.com/dibaliqaja/pos-mini.git
@@ -61,10 +61,32 @@ $ php artisan db:seed
 $ php artisan serve
 ```
 
-### Admin Credentials in Seeder
+## Admin Credentials in Seeder
 
 **Admin:** budi@pos.com  
 **Password:** password
+
+## API Access
+```
+# Authentication
+POST    {hostname}/api/v1/login         // Login User
+POST    {hostname}/api/v1/refresh       // Refresh Token User
+POST    {hostname}/api/v1/logout        // Logout User
+
+# Master User
+GET     {hostname}/api/v1/users         // List Users
+GET     {hostname}/api/v1/user/{id}     // Show User by Id
+POST    {hostname}/api/v1/user          // Create User
+PUT     {hostname}/api/v1/user/{id}     // Update User
+DELETE  {hostname}/api/v1/user/{id}     // Delete User
+
+# Master Product
+GET     {hostname}/api/v1/products      // List Products
+GET     {hostname}/api/v1/product/{id}  // Show User by Id
+POST    {hostname}/api/v1/product       // Create User
+POST    {hostname}/api/v1/product/{id}  // Update User
+DELETE  {hostname}/api/v1/product/{id}  // Delete User
+```
 
 ## License
 
