@@ -2,15 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
+use App\Models\Product;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Validator;
 
-class UserController extends Controller
+class ProductController extends Controller
 {
     /**
-     * Create a new UserController instance.
+     * Create a new ProductController instance.
      *
      * @return void
      */
@@ -29,19 +30,25 @@ class UserController extends Controller
             $per_page = $request->per_page ? $request->per_page : 10;
             $page     = $request->page ? $request->page : 1;
             $search   = $request->search;
-            $users    = User::query();
+            $products = Product::query();
             $data     = $search
-                        ? $users->where('email', 'LIKE', "%$search%")
-                            ->orWhere('name', 'LIKE', "%$search%")
+                        ? $products->where('name', 'LIKE', "%$search%")
+                            ->orWhere('sku', 'LIKE', "%$search%")
                             ->orderBy('created_at', 'DESC')
                             ->paginate($per_page)
-                        : $users->orderBy('created_at', 'DESC')
+                        : $products->orderBy('created_at', 'DESC')
                             ->paginate($per_page);
+
+            $items = collect($data->items());
+            $items->transform(function($item) {
+                $item->photo = asset('storage/images/' . $item->photo);
+                return $item;
+            });
 
             $response = [
                 'status'     => 'success',
-                'message'    => 'List User query get success',
-                'data'       => $data->items(),
+                'message'    => 'List Product query get success',
+                'data'       => $items,
                 'page'       => $page,
                 'per_page'   => $per_page,
                 'total_data' => $data->total(),
@@ -66,15 +73,16 @@ class UserController extends Controller
     public function show($id)
     {
         try {
-            $user = User::findOrFail($id);
+            $product = Product::findOrFail($id);
         
             return response()->json([
                 'status' => 'success',
-                'message' => 'User query get success',
+                'message' => 'Product query get success',
                 'data' => [
-                    'user_id' => $user->id,
-                    'email' => $user->email,
-                    'name' => $user->name
+                    'product_id' => $product->id,
+                    'name' => $product->name,
+                    'sku' => $product->sku,
+                    'photo' => asset('storage/images/' . $product->photo)
                 ]
             ], 200);
         } catch (Exception $e) {
@@ -95,9 +103,9 @@ class UserController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'name' => 'required|string|between:2,100',
-                'email' => 'required|string|email|max:100|unique:users',
-                'password' => 'required|string|confirmed|min:6',
+                'name' => 'required|string',
+                'sku' => 'required|string|unique:products',
+                'photo' => 'required|image|mimes:jpeg,png,jpg',
             ]);
 
             if($validator->fails()){
@@ -107,17 +115,24 @@ class UserController extends Controller
                 ], 422);
             }
 
-            $user = User::create(array_merge($validator->validated(),
-                        ['password' => bcrypt($request->password)]
-                    ));
+            $data = $validator->validated();
+            $file = $request->photo;
+            $input['photo'] = 'product-'.time().'.'.$file->getClientOriginalExtension();
+            $destinationPath = public_path('storage/images');
+            File::exists($destinationPath) or File::makeDirectory($destinationPath);
+            $file->move($destinationPath, $input['photo']);
+            $data['photo']  = $input['photo'];
+
+            $product = Product::create($data);
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'User successfully created',
+                'message' => 'Product successfully created',
                 'data' => [
-                    'user_id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email
+                    'product_id' => $product->id,
+                    'name' => $product->name,
+                    'sku' => $product->sku,
+                    'photo' => asset('storage/images/' . $product->photo)
                 ]
             ], 200);
         } catch (Exception $e) {
@@ -138,10 +153,9 @@ class UserController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'name' => 'required|string|between:2,100',
-                'email' => 'required|string|email|max:100|unique:users,email'.$id,
-                'password' => 'required|string|confirmed|min:6',
-                'password_confirmation' => 'required|string|min:6',
+                'name' => 'required|string',
+                'sku' => 'required|string|unique:products,sku,'.$id,
+                'photo' => 'required|image|mimes:jpeg,png,jpg',
             ]);
 
             if($validator->fails()){
@@ -151,18 +165,28 @@ class UserController extends Controller
                 ], 422);
             }
 
-            $user = User::findOrFail($id);
-            $user->update(array_merge($validator->validated(),
-                ['password' => bcrypt($request->password)]
-            ));
+            $data = $validator->validated();
+
+            $product = Product::findOrFail($id);
+            $filePath = public_path('storage/image/'.$product->photo);
+            if(File::exists($filePath)) File::delete($filePath);
+
+            $file = $request->photo;
+            $input['photo'] = 'product-'.time().'.'.$file->getClientOriginalExtension();
+            $destinationPath = public_path('storage/images');
+            File::exists($destinationPath) or File::makeDirectory($destinationPath);
+            $file->move($destinationPath, $input['photo']);
+            $data['photo']  = $input['photo'];
+            $product->update($data);
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'User successfully updated',
+                'message' => 'Product successfully updated',
                 'data' => [
-                    'user_id' => $id,
-                    'name' => $request->name,
-                    'email' => $request->email
+                    'product_id' => $id,
+                    'name' => $data['name'],
+                    'sku' => $data['sku'],
+                    'photo' => asset('storage/images/' . $data['photo'])
                 ]
             ], 200);
         } catch (Exception $e) {
@@ -182,11 +206,11 @@ class UserController extends Controller
     public function destroy($id)
     {
         try {
-            User::findOrFail($id)->delete();
+            Product::findOrFail($id)->delete();
             
             return response()->json([
                 'status' => 'success',
-                'message' => 'User deleted successfully'
+                'message' => 'Product deleted successfully'
             ], 200);
         } catch (Exception $e) {
             return response()->json([
