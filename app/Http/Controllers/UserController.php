@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UserRequest;
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use Exception;
 use Illuminate\Http\Request;
@@ -38,22 +40,17 @@ class UserController extends Controller
                         : $users->orderBy('created_at', 'DESC')
                             ->paginate($per_page);
 
-            $response = [
-                'status'     => 'success',
-                'message'    => 'List User query get success',
-                'data'       => $data->items(),
-                'page'       => $page,
-                'per_page'   => $per_page,
-                'total_data' => $data->total(),
-                'total_page' => ceil($data->total() / $per_page)
-            ];
-
-            return response()->json($response, 200);
+            return collectionResponse(
+                'List User query get success',
+                $data->items(),
+                $page,
+                $per_page,
+                $data->total(),
+                ceil($data->total() / $per_page),
+                200
+            );
         } catch (Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $e->getMessage()
-            ], 500);
+            return errorResponse($e->getMessage(), 500);
         }
     }
 
@@ -66,110 +63,48 @@ class UserController extends Controller
     public function show($id)
     {
         try {
-            $user = User::findOrFail($id);
-        
-            return response()->json([
-                'status' => 'success',
-                'message' => 'User query get success',
-                'data' => [
-                    'user_id' => $user->id,
-                    'email' => $user->email,
-                    'name' => $user->name
-                ]
-            ], 200);
+            $user = User::find($id);
+            if(!$user) return errorResponse('No User found', 404);
+            
+            return successResponse('User query get success',new UserResource($user));
         } catch (Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $e->getMessage()
-            ], 500);
+            return errorResponse($e->getMessage(), 500);
         }
     }
 
     /**
      * Store a newly created resource in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param  \Illuminate\Http\Requests\UserRequest  $request
      * @return \Illuminate\Http\Response
      */
-    public function store(Request $request)
+    public function store(UserRequest $request)
     {
         try {
-            $validator = Validator::make($request->all(), [
-                'name' => 'required|string|between:2,100',
-                'email' => 'required|string|email|max:100|unique:users',
-                'password' => 'required|string|confirmed|min:6',
-            ]);
+            $user = User::create(array_merge($request->validated(),['password' => bcrypt($request->password)]));
 
-            if($validator->fails()){
-                return response()->json([
-                    'status' => 'error',
-                    'message' => $validator->errors()
-                ], 422);
-            }
-
-            $user = User::create(array_merge($validator->validated(),
-                        ['password' => bcrypt($request->password)]
-                    ));
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'User successfully created',
-                'data' => [
-                    'user_id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email
-                ]
-            ], 200);
+            return successResponse('User successfully created',new UserResource($user));
         } catch (Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $e->getMessage()
-            ], 500);
+            return errorResponse($e->getMessage(), 500);
         }
     }
 
     /**
      * Update the specified resource in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param  \Illuminate\Http\Requests\UserRequest  $request
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, $id)
+    public function update(UserRequest $request, $id)
     {
         try {
-            $validator = Validator::make($request->all(), [
-                'name' => 'required|string|between:2,100',
-                'email' => 'required|string|email|max:100|unique:users,email'.$id,
-                'password' => 'required|string|confirmed|min:6',
-                'password_confirmation' => 'required|string|min:6',
-            ]);
+            $user = User::find($id);
+            if(!$user) return errorResponse('No User found', 404);
+            $user->update(array_merge($request->validated(),['password' => bcrypt($request->password)]));
 
-            if($validator->fails()){
-                return response()->json([
-                    'status' => 'error',
-                    'message' => $validator->errors()
-                ], 422);
-            }
-
-            $user = User::findOrFail($id);
-            $user->update(array_merge($validator->validated(),
-                ['password' => bcrypt($request->password)]
-            ));
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'User successfully updated',
-                'data' => [
-                    'user_id' => $id,
-                    'name' => $request->name,
-                    'email' => $request->email
-                ]
-            ], 200);
+            return successResponse('User successfully updated',new UserResource($user));
         } catch (Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $e->getMessage()
-            ], 500);
+            return errorResponse($e->getMessage(), 500);
         }
     }
 
@@ -182,17 +117,13 @@ class UserController extends Controller
     public function destroy($id)
     {
         try {
-            User::findOrFail($id)->delete();
+            $user = User::find($id);        
+            if(!$user) return errorResponse('No User found', 404);
+            $user->delete();
             
-            return response()->json([
-                'status' => 'success',
-                'message' => 'User deleted successfully'
-            ], 200);
+            return successResponse('User successfully deleted',[]);
         } catch (Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $e->getMessage()
-            ], 500);
+            return errorResponse($e->getMessage(), 500);
         }
     }
 }
