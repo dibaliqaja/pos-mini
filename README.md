@@ -52,11 +52,15 @@ $ php artisan migrate
 ```bash
 $ php artisan storage:link
 ```
-11. Seed the database
+11. Make a folder for images
+```bash
+$ mkdir ./public/storage/images
+```
+12. Seed the database
 ```bash
 $ php artisan db:seed
 ```
-12. Running project
+13. Running project
 ```bash
 $ php artisan serve
 ```
